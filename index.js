@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const express = require('express');
 const bcrypt = require('bcrypt');
 const User = require('./models/User.js');
+const requireAuth = require('./middleware/auth');
 
 const app = express();
 app.use(express.json());
