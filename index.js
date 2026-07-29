@@ -7,6 +7,15 @@ const User = require('./models/User.js');
 const app = express();
 app.use(express.json());
 
+const session = require('express-session');
+
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }
+}));
+
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB connected'))
   .catch((err) => console.error('MongoDB connection failed', err));
@@ -28,6 +37,32 @@ app.post('/signup', async (req, res) => {
   const user = await User.create({ email, passwordHash });
 
   res.status(201).json({ message: 'Account created', userId: user._id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+app.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    req.session.userId = user._id;
+    res.json({ message: 'Logged in', userId: user._id });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong' });
