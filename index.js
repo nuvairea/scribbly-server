@@ -5,8 +5,14 @@ const bcrypt = require('bcrypt');
 const User = require('./models/User');
 const Note = require('./models/Note');
 const requireAuth = require('./middleware/auth');
-
+const cors = require('cors');
 const app = express();
+
+app.use(cors({
+  origin: 'https://paulspective.github.io',
+  credentials: true,
+}));
+
 app.use(express.json());
 
 const session = require('express-session');
