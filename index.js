@@ -9,7 +9,7 @@ const cors = require('cors');
 const app = express();
 
 app.use(cors({
-  origin: 'https://nuvairea.github.io',
+  origin: 'https://scribbly-app.onrender.com',
   credentials: true,
 }));
 
