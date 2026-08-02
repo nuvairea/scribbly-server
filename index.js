@@ -9,7 +9,7 @@ const cors = require('cors');
 const app = express();
 
 app.use(cors({
-  origin: 'https://paulspective.github.io',
+  origin: 'https://nuvairea.github.io',
   credentials: true,
 }));
 
@@ -30,21 +30,21 @@ mongoose.connect(process.env.MONGODB_URI)
 
 app.post('/signup', async (req, res) => {
   try {
-  const { email, password } = req.body;
+    const { email, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({error: 'Email and password are required'});
-  }
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
 
-  const existingUser = await User.findOne({ email });
-  if (existingUser){
-    return res.status(409).json({error: 'An account with this email already exist'});
-  }
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({ error: 'An account with this email already exist' });
+    }
 
-  const passwordHash = await bcrypt.hash(password, 10);
-  const user = await User.create({ email, passwordHash });
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await User.create({ email, passwordHash });
 
-  res.status(201).json({ message: 'Account created', userId: user._id });
+    res.status(201).json({ message: 'Account created', userId: user._id });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong' });
