@@ -33,6 +33,19 @@ mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB connected'))
   .catch((err) => console.error('MongoDB connection failed', err));
 
+app.get('/me', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.session.userId).select('email');
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    res.json({ email: user.email, userId: user._id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
 app.post('/signup', async (req, res) => {
   try {
     const { email, password } = req.body;
