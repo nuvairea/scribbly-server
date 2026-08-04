@@ -139,9 +139,11 @@ app.get('/notes', requireAuth, async (req, res) => {
 
 app.post('/notes', requireAuth, async (req, res) => {
   try {
+    const { userId: _clientUserId, _id: _clientId, ...safeBody } = req.body;
+
     const note = await Note.create({
+      ...safeBody,
       userId: req.session.userId,
-      ...req.body,
       id: req.body.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     });
 
@@ -154,9 +156,11 @@ app.post('/notes', requireAuth, async (req, res) => {
 
 app.put('/notes/:id', requireAuth, async (req, res) => {
   try {
+    const { userId: _clientUserId, _id: _clientId, id: _clientNoteId, ...safeBody } = req.body;
+
     const note = await Note.findOneAndUpdate(
       { userId: req.session.userId, id: req.params.id },
-      { $set: { ...req.body, updatedAt: Date.now() } },
+      { $set: { ...safeBody, updatedAt: Date.now() } },
       { new: true }
     );
 
