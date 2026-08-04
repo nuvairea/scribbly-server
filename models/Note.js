@@ -9,7 +9,6 @@ const noteSchema = new mongoose.Schema({
   id: {
     type: String,
     required: true,
-    unique: true,
   },
   title: {
     type: String,
@@ -48,5 +47,7 @@ const noteSchema = new mongoose.Schema({
     default: Date.now,
   },
 }, { timestamps: { createdAt: 'timestamp', updatedAt: false } });
+
+noteSchema.index({ userId: 1, id: 1 }, { unique: true });
 
 module.exports = mongoose.model('Note', noteSchema);
