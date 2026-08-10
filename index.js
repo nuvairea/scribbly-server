@@ -10,7 +10,11 @@ const requireAuth = require('./middleware/auth');
 const app = express();
 
 app.use(cors({
-  origin: 'https://scribbly-app.onrender.com',
+  origin: [
+    'https://scribbly-app.onrender.com',
+    'http://localhost:5500',
+    'http://127.0.0.1:5500',
+  ],
   credentials: true,
 }));
 
@@ -106,6 +110,22 @@ app.post('/login', async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong' });
   }
+});
+
+app.post('/logout', requireAuth, (req, res) => {
+  req.session.destroy(err => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Failed to log out' });
+    }
+
+    res.clearCookie('connect.sid', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    });
+    res.json({ message: 'Logged out' });
+  });
 });
 
 app.get('/me', requireAuth, async (req, res) => {
