@@ -22,10 +22,15 @@ app.use(express.json());
 
 app.set('trust proxy', 1);
 
+const MongoStore = require('connect-mongo');
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'scribbly-dev-secret',
   resave: false,
   saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGODB_URI,
+  }),
   cookie: {
     maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
     httpOnly: true,
