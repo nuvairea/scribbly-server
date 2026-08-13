@@ -7,6 +7,7 @@ const cors = require('cors');
 const User = require('./models/User');
 const Note = require('./models/Note');
 const requireAuth = require('./middleware/auth');
+const mongoStore = require('connect-mongo').default || require('connect-mongo');
 const app = express();
 
 app.use(cors({
@@ -22,13 +23,12 @@ app.use(express.json());
 
 app.set('trust proxy', 1);
 
-const MongoStore = require('connect-mongo');
-
 app.use(session({
   secret: process.env.SESSION_SECRET || 'scribbly-dev-secret',
   resave: false,
   saveUninitialized: false,
-  store: MongoStore.create({
+  rolling: true,
+  store: mongoStore.create({
     mongoUrl: process.env.MONGODB_URI,
   }),
   cookie: {
