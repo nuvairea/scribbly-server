@@ -9,6 +9,7 @@ const Note = require('./models/Note');
 const requireAuth = require('./middleware/auth');
 const mongoStore = require('connect-mongo').default || require('connect-mongo');
 const app = express();
+const { rateLimit } = require('express-rate-limit');
 
 app.use(cors({
   origin: [
@@ -39,16 +40,32 @@ app.use(session({
   },
 }));
 
+const authLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  limit: 5,
+  message: { error: 'Too many attempts, please try again after 5 minutes' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB connection failed', err));
 
-app.post('/signup', async (req, res) => {
+app.post('/signup', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Please enter a valid email address' });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
 
     const existingUser = await User.findOne({ email });
@@ -77,12 +94,16 @@ app.post('/signup', async (req, res) => {
   }
 });
 
-app.post('/login', async (req, res) => {
+app.post('/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Please enter a valid email address' });
     }
 
     const user = await User.findOne({ email });
