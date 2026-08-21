@@ -1,5 +1,3 @@
-# Scribbly Server
-
 The backend API for [Scribbly](https://github.com/nuvairea/scribbly), a quick, clean note-taking app.
 
 **Live API:** [scribbly-server.onrender.com](https://scribbly-server.onrender.com)
