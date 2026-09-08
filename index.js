@@ -240,6 +240,25 @@ app.patch('/notes/:id', requireAuth, async (req, res) => {
   }
 });
 
+app.delete('/notes/:id', requireAuth, async (req, res) => {
+  try {
+    const result = await Note.deleteOne({
+      userId: req.session.userId,
+      id: req.params.id,
+      deleted: true,
+    });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Deleted note not found' });
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
 app.listen(process.env.PORT || 3000, () => {
   console.log(`Server running on port ${process.env.PORT || 3000}`);
 });
