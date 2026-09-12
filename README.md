@@ -12,6 +12,7 @@ Node.js and Express, with session-based authentication and MongoDB for storage.
 - Password hashing with bcrypt
 - Rate limiting on login and signup to slow down brute-force attempts
 - Full note CRUD, scoped per user, with soft-delete support
+- Account deletion that removes the user and all of their notes
 
 ## Tech stack
 
@@ -34,6 +35,8 @@ Node.js and Express, with session-based authentication and MongoDB for storage.
 | POST | `/notes` | Yes | Create a note |
 | PUT | `/notes/:id` | Yes | Update a note |
 | PATCH | `/notes/:id` | Yes | Update a note's deleted state |
+| DELETE | `/notes/:id` | Yes | Permanently delete a soft-deleted note |
+| DELETE | `/me` | Yes | Permanently delete the current user's account and all their notes |
 
 ## Getting started
 
