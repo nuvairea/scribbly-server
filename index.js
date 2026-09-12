@@ -6,10 +6,14 @@ const session = require('express-session');
 const cors = require('cors');
 const User = require('./models/User');
 const Note = require('./models/Note');
-const requireAuth = require('./middleware/auth');
+const authenticate = require('./middleware/auth');
 const mongoStore = require('connect-mongo').default || require('connect-mongo');
 const app = express();
 const { rateLimit } = require('express-rate-limit');
+
+if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
+  throw new Error('SESSION_SECRET must be configured in production');
+}
 
 app.use(cors({
   origin: [
@@ -25,7 +29,7 @@ app.use(express.json());
 app.set('trust proxy', 1);
 
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'scribbly-dev-secret',
+  secret: process.env.SESSION_SECRET || 'local-development-only-secret',
   resave: false,
   saveUninitialized: false,
   rolling: true,
@@ -76,16 +80,23 @@ app.post('/signup', authLimiter, async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await User.create({ email, passwordHash });
 
-    req.session.userId = user._id;
-    req.session.save((err) => {
+    req.session.regenerate((err) => {
       if (err) {
         console.error(err);
-        return res.status(500).json({ error: 'Failed to save session' });
+        return res.status(500).json({ error: 'Failed to create session' });
       }
 
-      res.status(201).json({
-        message: 'Signed up',
-        userId: user._id,
+      req.session.userId = user._id;
+      req.session.save((err) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: 'Failed to save session' });
+        }
+
+        res.status(201).json({
+          message: 'Signed up',
+          userId: user._id,
+        });
       });
     });
   } catch (err) {
@@ -118,27 +129,33 @@ app.post('/login', authLimiter, async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    req.session.userId = user._id;
-
-    req.session.save(err => {
+   req.session.regenerate((err) => {
       if (err) {
         console.error(err);
-        return res.status(500).json({ error: 'Failed to save session' });
+        return res.status(500).json({ error: 'Failed to create session' });
       }
 
-      res.json({
-        message: 'Logged in',
-        userId: user._id,
+      req.session.userId = user._id;
+      req.session.save((err) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: 'Failed to save session' });
+        }
+
+        res.status(200).json({
+          success: true,
+          message: 'Logged in',
+          userId: user._id,
+        });
       });
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
 
-app.post('/logout', requireAuth, (req, res) => {
+app.post('/logout', authenticate, (req, res) => {
   req.session.destroy(err => {
     if (err) {
       console.error(err);
@@ -150,11 +167,14 @@ app.post('/logout', requireAuth, (req, res) => {
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     });
-    res.json({ message: 'Logged out' });
+    res.json({ 
+      success: true,
+      message: 'Logged out'
+     });
   });
 });
 
-app.get('/me', requireAuth, async (req, res) => {
+app.get('/me', authenticate, async (req, res) => {
   try {
     const user = await User.findById(req.session.userId).select('email');
 
@@ -163,8 +183,8 @@ app.get('/me', requireAuth, async (req, res) => {
     }
 
     res.json({
-      email: user.email,
-      userId: user._id,
+      email: req.user.email,
+      userId: req.user._id,
     });
 
   } catch (err) {
@@ -173,7 +193,32 @@ app.get('/me', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/notes', requireAuth, async (req, res) => {
+app.delete('/me', authenticate, async (req, res) => {
+  try {
+    await Note.deleteMany({ userId: req.user._id });
+    await User.deleteOne({ _id: req.user._id });
+
+    req.session.destroy((err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Account deleted, but failed to end session' });
+      }
+
+      res.clearCookie('connect.sid', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      });
+
+      res.json({ success: true, message: 'Account deleted' });
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Account deletion failed', err: err.message });
+  }
+});
+
+app.get('/notes', authenticate, async (req, res) => {
   try {
     const notes = await Note.find({ userId: req.session.userId }).sort({ timestamp: -1 });
     res.json({ notes });
@@ -183,7 +228,7 @@ app.get('/notes', requireAuth, async (req, res) => {
   }
 });
 
-app.post('/notes', requireAuth, async (req, res) => {
+app.post('/notes', authenticate, async (req, res) => {
   try {
     const { userId: _clientUserId, _id: _clientId, ...safeBody } = req.body;
 
@@ -200,7 +245,7 @@ app.post('/notes', requireAuth, async (req, res) => {
   }
 });
 
-app.put('/notes/:id', requireAuth, async (req, res) => {
+app.put('/notes/:id', authenticate, async (req, res) => {
   try {
     const { userId: _clientUserId, _id: _clientId, id: _clientNoteId, ...safeBody } = req.body;
 
@@ -221,7 +266,7 @@ app.put('/notes/:id', requireAuth, async (req, res) => {
   }
 });
 
-app.patch('/notes/:id', requireAuth, async (req, res) => {
+app.patch('/notes/:id', authenticate, async (req, res) => {
   try {
     const note = await Note.findOne({ userId: req.session.userId, id: req.params.id });
     if (!note) {
@@ -240,7 +285,7 @@ app.patch('/notes/:id', requireAuth, async (req, res) => {
   }
 });
 
-app.delete('/notes/:id', requireAuth, async (req, res) => {
+app.delete('/notes/:id', authenticate, async (req, res) => {
   try {
     const result = await Note.deleteOne({
       userId: req.session.userId,
@@ -257,6 +302,10 @@ app.delete('/notes/:id', requireAuth, async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong' });
   }
+});
+
+app.listen(process.env.PORT || 3000, () => {
+  console.log(`Server running on port ${process.env.PORT || 3000}`);
 });
 
 app.listen(process.env.PORT || 3000, () => {
