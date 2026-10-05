@@ -12,13 +12,14 @@ import Note from './models/Note.js';
 import authenticate from './middleware/auth.js';
 
 const isProd = process.env.NODE_ENV === 'production';
-const { MONGODB_URI, GOOGLE_CLIENT_ID, SESSION_SECRET } = process.env;
+const { MONGODB_URI, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET } = process.env;
 
 if (!MONGODB_URI) throw new Error('MONGODB_URI must be configured');
 if (!GOOGLE_CLIENT_ID) throw new Error('GOOGLE_CLIENT_ID must be configured');
+if (!GOOGLE_CLIENT_SECRET) throw new Error('GOOGLE_CLIENT_SECRET must be configured');
 if (isProd && !SESSION_SECRET) throw new Error('SESSION_SECRET must be configured in production');
 
-const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, 'postmessage');
 const app = express();
 
 const cookieOptions = {
@@ -69,22 +70,25 @@ mongoose.connect(MONGODB_URI)
 // ---------- auth ----------
 
 app.post('/auth/google', authLimiter, async (req: Request, res: Response) => {
-  const credential = req.body?.credential;
+  const code = req.body?.code;
 
-  if (typeof credential !== 'string' || !credential) {
-    return res.status(400).json({ error: 'Missing Google credential' });
+  if (typeof code !== 'string' || !code) {
+    return res.status(400).json({ error: 'Missing Google code' });
   }
 
   let payload;
   try {
+    const { tokens } = await googleClient.getToken(code);
+    if (!tokens.id_token) throw new Error('Google did not return an id_token');
+
     const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
+      idToken: tokens.id_token,
       audience: GOOGLE_CLIENT_ID,
     });
     payload = ticket.getPayload();
   } catch (err) {
-    console.error('Google token verification failed', err);
-    return res.status(401).json({ error: 'Invalid Google token' });
+    console.error('Google sign-in failed', err);
+    return res.status(401).json({ error: 'Invalid Google sign-in' });
   }
 
   if (!payload?.sub || !payload.email || !payload.email_verified) {
