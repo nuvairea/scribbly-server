@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const noteSchema = new mongoose.Schema({
   userId: {
@@ -20,7 +20,7 @@ const noteSchema = new mongoose.Schema({
   },
   color: {
     type: String,
-    default: '#eada76',
+    default: '#e9e381',
   },
   date: {
     type: String,
@@ -46,8 +46,8 @@ const noteSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
-}, { timestamps: { createdAt: 'timestamp', updatedAt: false } });
+});
 
 noteSchema.index({ userId: 1, id: 1 }, { unique: true });
 
-module.exports = mongoose.model('Note', noteSchema);
+export default mongoose.model('Note', noteSchema);

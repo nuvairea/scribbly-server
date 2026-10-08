@@ -1,7 +1,8 @@
-const mongoose = require('mongoose');
-const User = require('../models/User');
+import type { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
+import User from '../models/User.js';
 
-async function authenticate(req, res, next) {
+export default async function authenticate(req: Request, res: Response, next: NextFunction) {
   const userId = req.session?.userId;
 
   if (!userId || !mongoose.isValidObjectId(userId)) {
@@ -12,7 +13,7 @@ async function authenticate(req, res, next) {
   }
 
   try {
-    const user = await User.findById(userId).select('_id email');
+    const user = await User.findById(userId).select('_id email firstName picture');
 
     if (!user) {
       req.session.destroy(() => {});
@@ -32,5 +33,3 @@ async function authenticate(req, res, next) {
     });
   }
 }
-
-module.exports = authenticate;
