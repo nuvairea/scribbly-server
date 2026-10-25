@@ -207,13 +207,17 @@ app.post('/notes', authenticate, async (req: Request, res: Response) => {
   }
 });
 
+const ALLOWED_FIELDS = ['title', 'body', 'color', 'date', 'time', 'timestamp'] as const;
+
 app.put('/notes/:id', authenticate, async (req: Request, res: Response) => {
   try {
-    const { userId: _clientUserId, _id: _clientId, id: _clientNoteId, ...safeBody } = req.body;
+    const updates = Object.fromEntries(
+      ALLOWED_FIELDS.filter((field) => req.body[field] !== undefined).map((field) => [field, req.body[field]]),
+    );
 
     const note = await Note.findOneAndUpdate(
       { userId: req.user!._id, id: req.params.id },
-      { $set: { ...safeBody, updatedAt: Date.now() } },
+      { $set: { ...updates, updatedAt: Date.now() } },
       { new: true },
     );
 
