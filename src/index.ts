@@ -193,11 +193,17 @@ app.get('/notes', authenticate, async (req: Request, res: Response) => {
 app.post('/notes', authenticate, async (req: Request, res: Response) => {
   try {
     const { userId: _clientUserId, _id: _clientId, ...safeBody } = req.body;
+    const id = req.body.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const existing = await Note.findOne({ userId: req.user!._id, id });
+    if (existing) {
+      return res.status(200).json({ note: existing });
+    }
 
     const note = await Note.create({
       ...safeBody,
       userId: req.user!._id,
-      id: req.body.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      id,
     });
 
     res.status(201).json({ note });
