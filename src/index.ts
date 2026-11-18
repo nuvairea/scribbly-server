@@ -221,17 +221,49 @@ app.put('/notes/:id', authenticate, async (req: Request, res: Response) => {
       ALLOWED_FIELDS.filter((field) => req.body[field] !== undefined).map((field) => [field, req.body[field]]),
     );
 
+    const baseTime = req.body.updatedAt ? new Date(req.body.updatedAt).getTime() : NaN;
+    const hasBase = Number.isFinite(baseTime);
+
+    const filter: Record<string, unknown> = { userId: req.user!._id, id: req.params.id };
+    if (hasBase) {
+      // only apply the edit if nobody saved this note since the client last saw it
+      filter.$or = [{ updatedAt: { $lte: new Date(baseTime) } }, { updatedAt: { $exists: false } }];
+    }
+
     const note = await Note.findOneAndUpdate(
-      { userId: req.user!._id, id: req.params.id },
+      filter,
       { $set: { ...updates, updatedAt: Date.now() } },
       { new: true },
     );
 
-    if (!note) {
+    if (note) {
+      return res.json({ note });
+    }
+
+    const current = await Note.findOne({ userId: req.user!._id, id: req.params.id });
+    if (!current) {
       return res.status(404).json({ error: 'Note not found' });
     }
 
-    res.json({ note });
+    const sameContent = ALLOWED_FIELDS.filter((field) => field !== 'timestamp' && field !== 'date' && field !== 'time')
+      .every((field) => updates[field] === undefined || updates[field] === current.get(field));
+    if (sameContent) {
+      return res.json({ note: current });
+    }
+
+    const incomingTitle = typeof updates.title === 'string' && updates.title ? updates.title : 'Untitled';
+    const copy = await Note.create({
+      title: `${incomingTitle} (conflict copy)`,
+      body: updates.body ?? current.body,
+      color: updates.color ?? current.color,
+      date: updates.date ?? current.date,
+      time: updates.time ?? current.time,
+      timestamp: updates.timestamp ?? Date.now(),
+      userId: req.user!._id,
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    });
+
+    res.json({ note: current, conflict: copy });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong' });
